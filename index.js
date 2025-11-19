@@ -46,6 +46,7 @@ async function run() {
         const dbColl = db.collection('habit-cards');
 
         // Fetch latest 6 habits
+
         app.get('/habitCards', async (req, res) => {
             try {
                 const result = await dbColl.find().sort({ createdAt: -1 }).limit(6).toArray();
@@ -54,7 +55,6 @@ async function run() {
                 res.status(500).json({ message: "Failed to fetch habits", error: err.message });
             }
         });
-
         // Add a new habit
         app.post("/habitCards", upload.single("image"), async (req, res) => {
             try {
