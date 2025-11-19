@@ -33,7 +33,7 @@ const storage = multer.diskStorage({
     },
     filename: function (req, file, cb) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(file.originalname); // keep original extension
+        const ext = path.extname(file.originalname);
         cb(null, file.fieldname + '-' + uniqueSuffix + ext);
     }
 });
@@ -75,7 +75,7 @@ async function run() {
         });
 
 
-        // Add a new habit
+
         // Add a new habit
         app.post("/habitCards", upload.single("image"), async (req, res) => {
             try {
@@ -125,7 +125,7 @@ async function run() {
         });
 
 
-        // ✅ Get single habit by ID
+        // Get single habit by ID
         app.get("/habits/:id", async (req, res) => {
             const { id } = req.params;
             try {
@@ -223,7 +223,7 @@ app.listen(port, () => {
 
 
 
-// Helper function to calculate streak
+// calculate streak
 function calculateStreak(dates) {
     if (!dates.length) return 0;
     const today = new Date();
