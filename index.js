@@ -17,6 +17,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const uri = process.env.MONGO_URI;
 
+
 // const uri = "mongodb+srv://habit_db_user:UOE2QkQCdu2686yo@cluster0.kzbp8mg.mongodb.net/?appName=Cluster0";
 const client = new MongoClient(uri, {
     serverApi: {
