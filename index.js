@@ -157,6 +157,8 @@ async function run() {
                     const sortedDates = habit.completionHistory.sort(
                         (a, b) => new Date(a) - new Date(b)
                     );
+
+
                     habit.currentStreak = calculateStreak(sortedDates);
                     await dbColl.updateOne(
                         { _id: new ObjectId(id) },
