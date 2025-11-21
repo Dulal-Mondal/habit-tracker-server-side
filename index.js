@@ -113,6 +113,8 @@ async function run() {
                 updatedData.imageUrl = `http://localhost:${port}/uploads/${req.file.filename}`;
             }
 
+
+
             try {
                 const habit = await dbColl.findOne({ _id: new ObjectId(id) });
                 if (!habit) return res.status(404).json({ message: "Habit not found" });
