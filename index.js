@@ -67,6 +67,7 @@ async function run() {
                 habit.completionHistory = [];
                 habit.currentStreak = 0;
 
+
                 const result = await dbColl.insertOne(habit);
                 res.status(201).json({ message: "Habit added successfully", id: result.insertedId });
             } catch (err) {
