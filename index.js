@@ -207,6 +207,7 @@ async function run() {
             try {
                 const result = await dbColl.find().sort({ createdAt: -1 }).toArray();
                 res.status(200).json(result);
+
             } catch (err) {
                 res.status(500).json({ message: "Failed to fetch public habits", error: err.message });
             }
