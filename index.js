@@ -192,6 +192,7 @@ async function run() {
         // Delete habit
         app.delete("/habits/:id", async (req, res) => {
             const { id } = req.params;
+
             try {
                 const result = await dbColl.deleteOne({ _id: new ObjectId(id) });
                 if (result.deletedCount === 0) return res.status(404).json({ message: "Habit not found" });
