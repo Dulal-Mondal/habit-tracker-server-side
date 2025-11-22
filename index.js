@@ -60,6 +60,7 @@ async function run() {
         app.post("/habitCards", upload.single("image"), async (req, res) => {
             try {
                 const habit = req.body;
+                console.log(habit)
                 if (req.file) {
                     habit.imageUrl = `http://localhost:${port}/uploads/${req.file.filename}`;
                 }
@@ -244,3 +245,5 @@ function calculateStreak(dates) {
     }
     return streak;
 }
+
+
