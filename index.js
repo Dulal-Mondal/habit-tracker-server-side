@@ -42,7 +42,7 @@ const upload = multer({ storage: storage });
 
 async function run() {
     try {
-        await client.connect();
+        // await client.connect();
         const db = client.db('habit-db');
         const dbColl = db.collection('habit-cards');
 
