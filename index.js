@@ -10,31 +10,22 @@ const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-
-// Serve uploads folder statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const uri = process.env.MONGO_URI;
 const client = new MongoClient(uri, {
-    serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
-    }
+    serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
 });
 
 // Multer setup
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, 'uploads/');
-    },
-    filename: function (req, file, cb) {
+    destination: (req, file, cb) => cb(null, 'uploads/'),
+    filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        const ext = path.extname(file.originalname);
-        cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
     }
 });
-const upload = multer({ storage: storage });
+const upload = multer({ storage });
 
 async function run() {
     try {
@@ -51,7 +42,7 @@ async function run() {
             }
         });
 
-        // Add a new habit
+        // Add new habit
         app.post("/habitCards", upload.single("image"), async (req, res) => {
             try {
                 const { title, description, category, reminderTime, userEmail, userName, isPrivate } = req.body;
@@ -69,7 +60,6 @@ async function run() {
                 };
 
                 if (req.file) {
-                    // Public URL for deployed server
                     habit.imageUrl = `https://habit-tracker-server-side.vercel.app/uploads/${req.file.filename}`;
                 }
 
@@ -78,23 +68,6 @@ async function run() {
             } catch (err) {
                 console.error("Failed to add habit:", err);
                 res.status(500).json({ message: "Failed to add habit", error: err.message });
-            }
-        });
-
-        // Update habit
-        app.patch("/habits/:id", upload.single("image"), async (req, res) => {
-            const { id } = req.params;
-            const updatedData = req.body;
-            if (req.file) updatedData.imageUrl = `https://habit-tracker-server-side.vercel.app/uploads/${req.file.filename}`;
-            try {
-                const habit = await dbColl.findOne({ _id: new ObjectId(id) });
-                if (!habit) return res.status(404).json({ message: "Habit not found" });
-
-                await dbColl.updateOne({ _id: new ObjectId(id) }, { $set: updatedData });
-                const updatedHabit = await dbColl.findOne({ _id: new ObjectId(id) });
-                res.status(200).json(updatedHabit);
-            } catch (err) {
-                res.status(500).json({ message: "Failed to update habit", error: err.message });
             }
         });
 
@@ -135,13 +108,15 @@ async function run() {
             }
         });
 
-        // Get public habits
-        app.get('/publicHabits', async (req, res) => {
+        // Fetch user's own habits
+        app.get('/myHabits/:email', async (req, res) => {
+            const { email } = req.params;
             try {
-                const result = await dbColl.find().sort({ createdAt: -1 }).toArray();
-                res.status(200).json(result);
+                const habits = await dbColl.find({ "creator.email": email }).sort({ createdAt: -1 }).toArray();
+                res.status(200).json(habits);
             } catch (err) {
-                res.status(500).json({ message: "Failed to fetch public habits", error: err.message });
+                console.error("Failed to fetch user's habits:", err);
+                res.status(500).json({ message: "Failed to fetch user's habits", error: err.message });
             }
         });
 
