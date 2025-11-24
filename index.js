@@ -8,10 +8,10 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
-// Serve uploads folder publicly
+
+// Serve uploads folder statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const uri = process.env.MONGO_URI;
@@ -41,7 +41,7 @@ async function run() {
         const db = client.db('habit-db');
         const dbColl = db.collection('habit-cards');
 
-        // GET latest 6 habits
+        // Fetch latest 6 habits
         app.get('/habitCards', async (req, res) => {
             try {
                 const result = await dbColl.find().sort({ createdAt: -1 }).limit(6).toArray();
@@ -51,48 +51,41 @@ async function run() {
             }
         });
 
-        // ADD new habit
+        // Add a new habit
         app.post("/habitCards", upload.single("image"), async (req, res) => {
             try {
+                const { title, description, category, reminderTime, userEmail, userName, isPrivate } = req.body;
+
                 const habit = {
-                    title: req.body.title,
-                    description: req.body.description,
-                    category: req.body.category,
-                    reminderTime: req.body.reminderTime,
-                    creator: {
-                        name: req.body.userName || "Unknown",
-                        email: req.body.userEmail || "Unknown"
-                    },
-                    isPrivate: req.body.isPrivate === "true",
+                    title,
+                    description,
+                    category,
+                    reminderTime,
+                    creator: { name: userName || "Unknown", email: userEmail || "Unknown" },
+                    isPrivate: isPrivate === "true",
                     createdAt: new Date().toISOString(),
                     completionHistory: [],
-                    currentStreak: 0
+                    currentStreak: 0,
                 };
 
-                // Vercel public URL
-                const serverUrl = process.env.SERVER_URL || `http://localhost:${port}`;
                 if (req.file) {
-                    habit.imageUrl = `${serverUrl}/uploads/${req.file.filename}`;
+                    // Public URL for deployed server
+                    habit.imageUrl = `https://habit-tracker-server-side.vercel.app/uploads/${req.file.filename}`;
                 }
 
                 const result = await dbColl.insertOne(habit);
                 res.status(201).json({ message: "Habit added successfully", id: result.insertedId, habit });
             } catch (err) {
-                console.error("Add Habit Error:", err);
+                console.error("Failed to add habit:", err);
                 res.status(500).json({ message: "Failed to add habit", error: err.message });
             }
         });
 
-        // PATCH update habit
+        // Update habit
         app.patch("/habits/:id", upload.single("image"), async (req, res) => {
             const { id } = req.params;
             const updatedData = req.body;
-
-            if (req.file) {
-                const serverUrl = process.env.SERVER_URL || `http://localhost:${port}`;
-                updatedData.imageUrl = `${serverUrl}/uploads/${req.file.filename}`;
-            }
-
+            if (req.file) updatedData.imageUrl = `https://habit-tracker-server-side.vercel.app/uploads/${req.file.filename}`;
             try {
                 const habit = await dbColl.findOne({ _id: new ObjectId(id) });
                 if (!habit) return res.status(404).json({ message: "Habit not found" });
@@ -105,7 +98,7 @@ async function run() {
             }
         });
 
-        // GET single habit
+        // Get single habit
         app.get("/habits/:id", async (req, res) => {
             const { id } = req.params;
             try {
@@ -117,7 +110,7 @@ async function run() {
             }
         });
 
-        // MARK habit complete
+        // Mark habit complete
         app.patch("/habits/complete/:id", async (req, res) => {
             const { id } = req.params;
             const { date } = req.body;
@@ -128,43 +121,21 @@ async function run() {
                 habit.completionHistory = habit.completionHistory || [];
                 if (!habit.completionHistory.includes(date)) {
                     habit.completionHistory.push(date);
-                    const sortedDates = habit.completionHistory.sort((a, b) => new Date(a) - new Date(b));
-                    habit.currentStreak = calculateStreak(sortedDates);
+                    habit.completionHistory.sort((a, b) => new Date(a) - new Date(b));
+                    habit.currentStreak = calculateStreak(habit.completionHistory);
                     await dbColl.updateOne(
                         { _id: new ObjectId(id) },
                         { $set: { completionHistory: habit.completionHistory, currentStreak: habit.currentStreak } }
                     );
                 }
+
                 res.status(200).json(habit);
             } catch (err) {
                 res.status(500).json({ message: "Failed to mark habit complete", error: err.message });
             }
         });
 
-        // GET user habits
-        app.get('/myhabits/:email', async (req, res) => {
-            const { email } = req.params;
-            try {
-                const habits = await dbColl.find({ "creator.email": email }).sort({ createdAt: -1 }).toArray();
-                res.status(200).json(habits);
-            } catch (err) {
-                res.status(500).json({ message: "Failed to fetch user's habits", error: err.message });
-            }
-        });
-
-        // DELETE habit
-        app.delete("/habits/:id", async (req, res) => {
-            const { id } = req.params;
-            try {
-                const result = await dbColl.deleteOne({ _id: new ObjectId(id) });
-                if (result.deletedCount === 0) return res.status(404).json({ message: "Habit not found" });
-                res.status(200).json({ message: "Habit deleted successfully" });
-            } catch (err) {
-                res.status(500).json({ message: "Failed to delete habit", error: err.message });
-            }
-        });
-
-        // GET public habits
+        // Get public habits
         app.get('/publicHabits', async (req, res) => {
             try {
                 const result = await dbColl.find().sort({ createdAt: -1 }).toArray();
@@ -176,21 +147,15 @@ async function run() {
 
         console.log("MongoDB connected!");
     } finally {
-        // Do not close client, keep server running
+        // await client.close();
     }
 }
 run().catch(console.dir);
 
-// Root
-app.get('/', (req, res) => {
-    res.send('Server is running fine!');
-});
+app.get('/', (req, res) => res.send('Server is running fine!'));
+app.listen(port, () => console.log(`Server listening on port ${port}`));
 
-app.listen(port, () => {
-    console.log(`Server listening on port ${port}`);
-});
-
-// calculate streak
+// Calculate streak
 function calculateStreak(dates) {
     if (!dates.length) return 0;
     const today = new Date();
