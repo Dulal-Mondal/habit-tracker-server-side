@@ -8,10 +8,10 @@ const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Middleware
 app.use(cors());
 app.use(express.json());
-
-// Serve uploads folder statically
+// Serve uploads folder publicly
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 const uri = process.env.MONGO_URI;
@@ -23,25 +23,25 @@ const client = new MongoClient(uri, {
     }
 });
 
-// Multer setup for image uploads
+// Multer setup
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, 'uploads/');
     },
     filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
         const ext = path.extname(file.originalname);
         cb(null, file.fieldname + '-' + uniqueSuffix + ext);
     }
 });
-const upload = multer({ storage });
+const upload = multer({ storage: storage });
 
 async function run() {
     try {
         const db = client.db('habit-db');
         const dbColl = db.collection('habit-cards');
 
-        // Fetch latest 6 habits
+        // GET latest 6 habits
         app.get('/habitCards', async (req, res) => {
             try {
                 const result = await dbColl.find().sort({ createdAt: -1 }).limit(6).toArray();
@@ -51,7 +51,7 @@ async function run() {
             }
         });
 
-        // Add a new habit
+        // ADD new habit
         app.post("/habitCards", upload.single("image"), async (req, res) => {
             try {
                 const habit = {
@@ -69,25 +69,28 @@ async function run() {
                     currentStreak: 0
                 };
 
-                // ✅ Use deployed server URL, not localhost
+                // Vercel public URL
+                const serverUrl = process.env.SERVER_URL || `http://localhost:${port}`;
                 if (req.file) {
-                    habit.imageUrl = `https://habit-tracker-server-side.vercel.app/uploads/${req.file.filename}`;
+                    habit.imageUrl = `${serverUrl}/uploads/${req.file.filename}`;
                 }
 
                 const result = await dbColl.insertOne(habit);
                 res.status(201).json({ message: "Habit added successfully", id: result.insertedId, habit });
             } catch (err) {
+                console.error("Add Habit Error:", err);
                 res.status(500).json({ message: "Failed to add habit", error: err.message });
             }
         });
 
-        // Update habit
+        // PATCH update habit
         app.patch("/habits/:id", upload.single("image"), async (req, res) => {
             const { id } = req.params;
             const updatedData = req.body;
 
             if (req.file) {
-                updatedData.imageUrl = `https://habit-tracker-server-side.vercel.app/uploads/${req.file.filename}`;
+                const serverUrl = process.env.SERVER_URL || `http://localhost:${port}`;
+                updatedData.imageUrl = `${serverUrl}/uploads/${req.file.filename}`;
             }
 
             try {
@@ -102,7 +105,7 @@ async function run() {
             }
         });
 
-        // Get single habit
+        // GET single habit
         app.get("/habits/:id", async (req, res) => {
             const { id } = req.params;
             try {
@@ -114,7 +117,7 @@ async function run() {
             }
         });
 
-        // Mark habit complete
+        // MARK habit complete
         app.patch("/habits/complete/:id", async (req, res) => {
             const { id } = req.params;
             const { date } = req.body;
@@ -127,20 +130,18 @@ async function run() {
                     habit.completionHistory.push(date);
                     const sortedDates = habit.completionHistory.sort((a, b) => new Date(a) - new Date(b));
                     habit.currentStreak = calculateStreak(sortedDates);
-
                     await dbColl.updateOne(
                         { _id: new ObjectId(id) },
                         { $set: { completionHistory: habit.completionHistory, currentStreak: habit.currentStreak } }
                     );
                 }
-
                 res.status(200).json(habit);
             } catch (err) {
                 res.status(500).json({ message: "Failed to mark habit complete", error: err.message });
             }
         });
 
-        // Get user's habits
+        // GET user habits
         app.get('/myhabits/:email', async (req, res) => {
             const { email } = req.params;
             try {
@@ -151,7 +152,7 @@ async function run() {
             }
         });
 
-        // Delete habit
+        // DELETE habit
         app.delete("/habits/:id", async (req, res) => {
             const { id } = req.params;
             try {
@@ -163,7 +164,7 @@ async function run() {
             }
         });
 
-        // Get public habits
+        // GET public habits
         app.get('/publicHabits', async (req, res) => {
             try {
                 const result = await dbColl.find().sort({ createdAt: -1 }).toArray();
@@ -175,16 +176,19 @@ async function run() {
 
         console.log("MongoDB connected!");
     } finally {
-        // do not close client in dev
+        // Do not close client, keep server running
     }
 }
 run().catch(console.dir);
 
+// Root
 app.get('/', (req, res) => {
     res.send('Server is running fine!');
 });
 
-app.listen(port, () => console.log(`Server listening on port ${port}`));
+app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+});
 
 // calculate streak
 function calculateStreak(dates) {
