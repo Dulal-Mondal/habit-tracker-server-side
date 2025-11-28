@@ -3,6 +3,7 @@ const express = require('express');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const cors = require('cors');
 
+const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -95,13 +96,13 @@ async function run() {
         });
 
         // Update habit
-        // Update habit with optional imageUrl
+        // Update habit including optional imageUrl
         app.patch("/habits/:id", async (req, res) => {
             const { id } = req.params;
             const { title, description, category, reminderTime, imageUrl } = req.body;
 
             try {
-                // Only update the fields that are provided
+                // Build update object dynamically
                 const update = {};
                 if (title !== undefined) update.title = title;
                 if (description !== undefined) update.description = description;
@@ -114,7 +115,9 @@ async function run() {
                     { $set: update }
                 );
 
-                if (result.matchedCount === 0) return res.status(404).json({ message: "Habit not found" });
+                if (result.matchedCount === 0) {
+                    return res.status(404).json({ message: "Habit not found" });
+                }
 
                 const updatedHabit = await dbColl.findOne({ _id: new ObjectId(id) });
                 res.status(200).json(updatedHabit);
@@ -123,6 +126,7 @@ async function run() {
                 res.status(500).json({ message: "Failed to update habit", error: err.message });
             }
         });
+
 
 
         // Mark habit complete
