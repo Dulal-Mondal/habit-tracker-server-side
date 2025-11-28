@@ -29,24 +29,24 @@ const upload = multer({ storage });
 
 async function run() {
     try {
+        await client.connect();
         const db = client.db('habit-db');
         const dbColl = db.collection('habit-cards');
 
-        // Fetch latest 6 habits
+        // Get latest 6 habits (Featured)
         app.get('/habitCards', async (req, res) => {
             try {
-                const result = await dbColl.find().sort({ createdAt: -1 }).limit(6).toArray();
-                res.status(200).json(result);
+                const habits = await dbColl.find().sort({ createdAt: -1 }).limit(6).toArray();
+                res.status(200).json(habits);
             } catch (err) {
                 res.status(500).json({ message: "Failed to fetch habits", error: err.message });
             }
         });
 
-        // Add new habit
+        // Add a new habit
         app.post("/habitCards", upload.single("image"), async (req, res) => {
             try {
                 const { title, description, category, reminderTime, userEmail, userName, isPrivate } = req.body;
-
                 const habit = {
                     title,
                     description,
@@ -57,28 +57,19 @@ async function run() {
                     createdAt: new Date().toISOString(),
                     completionHistory: [],
                     currentStreak: 0,
+                    imageUrl: req.file ? `https://habit-tracker-server-side.vercel.app/uploads/${req.file.filename}` : null
                 };
-
-                // ✅ If image uploaded, use it; otherwise default image
-                if (req.file) {
-                    habit.imageUrl = `https://habit-tracker-server-side.vercel.app/uploads/${req.file.filename}`;
-                } else {
-                    habit.imageUrl = `https://habit-tracker-server-side.vercel.app/uploads/default-habit.png`;
-                }
-
                 const result = await dbColl.insertOne(habit);
                 res.status(201).json({ message: "Habit added successfully", id: result.insertedId, habit });
             } catch (err) {
-                console.error("Failed to add habit:", err);
                 res.status(500).json({ message: "Failed to add habit", error: err.message });
             }
         });
 
-        // Get single habit
+        // Get single habit by ID
         app.get("/habits/:id", async (req, res) => {
-            const { id } = req.params;
             try {
-                const habit = await dbColl.findOne({ _id: new ObjectId(id) });
+                const habit = await dbColl.findOne({ _id: new ObjectId(req.params.id) });
                 if (!habit) return res.status(404).json({ message: "Habit not found" });
                 res.status(200).json(habit);
             } catch (err) {
@@ -88,10 +79,9 @@ async function run() {
 
         // Mark habit complete
         app.patch("/habits/complete/:id", async (req, res) => {
-            const { id } = req.params;
             const { date } = req.body;
             try {
-                const habit = await dbColl.findOne({ _id: new ObjectId(id) });
+                const habit = await dbColl.findOne({ _id: new ObjectId(req.params.id) });
                 if (!habit) return res.status(404).json({ message: "Habit not found" });
 
                 habit.completionHistory = habit.completionHistory || [];
@@ -100,32 +90,29 @@ async function run() {
                     habit.completionHistory.sort((a, b) => new Date(a) - new Date(b));
                     habit.currentStreak = calculateStreak(habit.completionHistory);
                     await dbColl.updateOne(
-                        { _id: new ObjectId(id) },
+                        { _id: new ObjectId(req.params.id) },
                         { $set: { completionHistory: habit.completionHistory, currentStreak: habit.currentStreak } }
                     );
                 }
-
                 res.status(200).json(habit);
             } catch (err) {
                 res.status(500).json({ message: "Failed to mark habit complete", error: err.message });
             }
         });
 
-        // Fetch user's own habits
+        // Get all habits of a user
         app.get('/myHabits/:email', async (req, res) => {
-            const { email } = req.params;
             try {
-                const habits = await dbColl.find({ "creator.email": email }).sort({ createdAt: -1 }).toArray();
+                const habits = await dbColl.find({ "creator.email": req.params.email }).sort({ createdAt: -1 }).toArray();
                 res.status(200).json(habits);
             } catch (err) {
-                console.error("Failed to fetch user's habits:", err);
                 res.status(500).json({ message: "Failed to fetch user's habits", error: err.message });
             }
         });
 
         console.log("MongoDB connected!");
     } finally {
-        // await client.close();
+        // client.close(); // Do not close for persistent server
     }
 }
 run().catch(console.dir);
@@ -133,7 +120,7 @@ run().catch(console.dir);
 app.get('/', (req, res) => res.send('Server is running fine!'));
 app.listen(port, () => console.log(`Server listening on port ${port}`));
 
-// Calculate streak
+// Calculate streak helper
 function calculateStreak(dates) {
     if (!dates.length) return 0;
     const today = new Date();
