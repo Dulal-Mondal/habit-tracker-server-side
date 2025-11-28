@@ -78,7 +78,7 @@ async function run() {
 
         // Get single habit
         app.get("/habits/:id", async (req, res) => {
-            const id = req.params.id;
+            const { id } = req.params;
             // ✅
             try {
                 const habit = await dbColl.findOne({ _id: new ObjectId(id) });
@@ -104,7 +104,7 @@ async function run() {
         });
 
         // Update habit
-        app.patch("/habits/:id", async (req, res) => {
+        app.put("/habits/:id", async (req, res) => {
             const { id } = req.params;
             const { title, description, category, reminderTime } = req.body;
 
