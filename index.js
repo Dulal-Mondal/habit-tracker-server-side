@@ -17,15 +17,15 @@ const client = new MongoClient(uri, {
     serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
 });
 
-// Multer setup
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, 'uploads/'),
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
-const upload = multer({ storage });
+// // Multer setup
+// const storage = multer.diskStorage({
+//     destination: (req, file, cb) => cb(null, 'uploads/'),
+//     filename: (req, file, cb) => {
+//         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+//         cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+//     }
+// });
+// const upload = multer({ storage });
 
 async function run() {
     try {
@@ -36,16 +36,24 @@ async function run() {
         app.get('/habitCards', async (req, res) => {
             try {
                 const result = await dbColl.find().sort({ createdAt: -1 }).limit(6).toArray();
-                res.status(200).json(result);
+                res.status(200).send(result);
+            } catch (err) {
+                res.status(500).json({ message: "Failed to fetch habits", error: err.message });
+            }
+        });
+        app.get('/publicHabits', async (req, res) => {
+            try {
+                const result = await dbColl.find().toArray();
+                res.status(200).send(result);
             } catch (err) {
                 res.status(500).json({ message: "Failed to fetch habits", error: err.message });
             }
         });
 
         // Add new habit
-        app.post("/habitCards", upload.single("image"), async (req, res) => {
+        app.post("/habitCards", async (req, res) => {
             try {
-                const { title, description, category, reminderTime, userEmail, userName, isPrivate } = req.body;
+                const { title, description, category, reminderTime, userEmail, userName, isPrivate, imageUrl } = req.body;
 
                 const habit = {
                     title,
@@ -57,11 +65,8 @@ async function run() {
                     createdAt: new Date().toISOString(),
                     completionHistory: [],
                     currentStreak: 0,
+                    imageUrl: imageUrl || null   // Frontend theke pathano URL
                 };
-
-                if (req.file) {
-                    habit.imageUrl = `https://habit-tracker-server-side.vercel.app/uploads/${req.file.filename}`;
-                }
 
                 const result = await dbColl.insertOne(habit);
                 res.status(201).json({ message: "Habit added successfully", id: result.insertedId, habit });
