@@ -59,8 +59,11 @@ async function run() {
                     currentStreak: 0,
                 };
 
+                // ✅ If image uploaded, use it; otherwise default image
                 if (req.file) {
                     habit.imageUrl = `https://habit-tracker-server-side.vercel.app/uploads/${req.file.filename}`;
+                } else {
+                    habit.imageUrl = `https://habit-tracker-server-side.vercel.app/uploads/default-habit.png`;
                 }
 
                 const result = await dbColl.insertOne(habit);
