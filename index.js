@@ -2,8 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const cors = require('cors');
-const multer = require("multer");
-const path = require('path');
+
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -17,15 +16,7 @@ const client = new MongoClient(uri, {
     serverApi: { version: ServerApiVersion.v1, strict: true, deprecationErrors: true }
 });
 
-// // Multer setup
-// const storage = multer.diskStorage({
-//     destination: (req, file, cb) => cb(null, 'uploads/'),
-//     filename: (req, file, cb) => {
-//         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-//         cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-//     }
-// });
-// const upload = multer({ storage });
+
 
 async function run() {
     try {
@@ -104,21 +95,31 @@ async function run() {
         });
 
         // Update habit
+        // Update habit with optional imageUrl
         app.patch("/habits/:id", async (req, res) => {
             const { id } = req.params;
-            const { title, description, category, reminderTime } = req.body;
+            const { title, description, category, reminderTime, imageUrl } = req.body;
 
             try {
-                const update = { title, description, category, reminderTime };
+                // Only update the fields that are provided
+                const update = {};
+                if (title !== undefined) update.title = title;
+                if (description !== undefined) update.description = description;
+                if (category !== undefined) update.category = category;
+                if (reminderTime !== undefined) update.reminderTime = reminderTime;
+                if (imageUrl !== undefined) update.imageUrl = imageUrl;
+
                 const result = await dbColl.updateOne(
                     { _id: new ObjectId(id) },
                     { $set: update }
                 );
+
                 if (result.matchedCount === 0) return res.status(404).json({ message: "Habit not found" });
 
                 const updatedHabit = await dbColl.findOne({ _id: new ObjectId(id) });
                 res.status(200).json(updatedHabit);
             } catch (err) {
+                console.error("Failed to update habit:", err);
                 res.status(500).json({ message: "Failed to update habit", error: err.message });
             }
         });
