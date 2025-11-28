@@ -65,7 +65,7 @@ async function run() {
                     createdAt: new Date().toISOString(),
                     completionHistory: [],
                     currentStreak: 0,
-                    imageUrl: imageUrl || null   // Frontend theke pathano URL
+                    imageUrl: imageUrl || null
                 };
 
                 const result = await dbColl.insertOne(habit);
@@ -101,9 +101,10 @@ async function run() {
         });
 
         // Update habit
-        app.patch("/habits/:id", async (req, res) => {
+        app.put("/habits/:id", async (req, res) => {
             const { id } = req.params;
             const { title, description, category, reminderTime } = req.body;
+
             try {
                 const update = { title, description, category, reminderTime };
                 const result = await dbColl.updateOne(
@@ -111,12 +112,14 @@ async function run() {
                     { $set: update }
                 );
                 if (result.matchedCount === 0) return res.status(404).json({ message: "Habit not found" });
+
                 const updatedHabit = await dbColl.findOne({ _id: new ObjectId(id) });
                 res.status(200).json(updatedHabit);
             } catch (err) {
                 res.status(500).json({ message: "Failed to update habit", error: err.message });
             }
         });
+
 
         // Mark habit complete
         app.patch("/habits/complete/:id", async (req, res) => {
