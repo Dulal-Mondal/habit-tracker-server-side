@@ -104,7 +104,7 @@ async function run() {
         });
 
         // Update habit
-        app.put("/habits/:id", async (req, res) => {
+        app.patch("/habits/:id", async (req, res) => {
             const { id } = req.params;
             const { title, description, category, reminderTime } = req.body;
 
