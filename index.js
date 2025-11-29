@@ -96,37 +96,24 @@ async function run() {
         });
 
         // Update habit
-        // Update habit including optional imageUrl
         app.patch("/habits/:id", async (req, res) => {
             const { id } = req.params;
-            const { title, description, category, reminderTime, imageUrl } = req.body;
+            const { title, description, category, reminderTime } = req.body;
 
             try {
-                // Build update object dynamically
-                const update = {};
-                if (title !== undefined) update.title = title;
-                if (description !== undefined) update.description = description;
-                if (category !== undefined) update.category = category;
-                if (reminderTime !== undefined) update.reminderTime = reminderTime;
-                if (imageUrl !== undefined) update.imageUrl = imageUrl;
-
+                const update = { title, description, category, reminderTime };
                 const result = await dbColl.updateOne(
                     { _id: new ObjectId(id) },
                     { $set: update }
                 );
-
-                if (result.matchedCount === 0) {
-                    return res.status(404).json({ message: "Habit not found" });
-                }
+                if (result.matchedCount === 0) return res.status(404).json({ message: "Habit not found" });
 
                 const updatedHabit = await dbColl.findOne({ _id: new ObjectId(id) });
                 res.status(200).json(updatedHabit);
             } catch (err) {
-                console.error("Failed to update habit:", err);
                 res.status(500).json({ message: "Failed to update habit", error: err.message });
             }
         });
-
 
 
         // Mark habit complete
